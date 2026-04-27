@@ -106,12 +106,6 @@ streamlit run app.py
 
 ---
 
-🖼️ Screenshots
-
-Add your screenshots here for better presentation
-
----
-
 🚀 Future Improvements
 
 - 🔍 SHAP Explainability
