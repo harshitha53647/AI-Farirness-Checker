@@ -857,6 +857,15 @@ def main_app():
                     else:
                         q = question.lower()
                         answer = ""
+                        # ================= GOOGLE GEMINI SECTION =================
+                        st.subheader("🤖 Google Gemini AI Assistant")
+
+
+                        st.write("Use Gemini for fairness explanations, recommendations, and AI guidance.")
+
+
+                        st.link_button("Ask Gemini", "https://gemini.google.com")
+
 
                         # ================= FAIRNESS QUESTIONS =================
                         if "why is fairness score low" in q or "low fairness" in q:
