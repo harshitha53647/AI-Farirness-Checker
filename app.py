@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import google.generativeai as genai
 
-genai.configure(api_key="AIzaSyAl_L1SHVCZ1XRsuCSeoCl_VYxDpOsB7cQ")
+genai.configure(api_key="AIzaSyBrnsGQtdFtrpcuFdMOVNq9U31MrDhHWNY")
 
 model = genai.GenerativeModel("gemini-2.0-flash")
 
@@ -856,56 +856,92 @@ def main_app():
 
                 if st.button("Ask AI"):
 
-                    if question.strip() == "":
-                        st.warning("Please enter a question")
+                    q = question.lower()
 
-                    else:
-                        # Dataset details
-                        columns_list = ", ".join(df.columns)
-                        row_names = ", ".join(df.index.astype(str).tolist()[:20])   # first 20 rows only
-                        missing_values = df.isnull().sum().to_string()
+                    prompt = f"""
+                    Dataset columns: {', '.join(df.columns)}
+                    Rows: {len(df)}
 
-                        best_group = group_data.idxmax()
-                        least_group = group_data.idxmin()
+                    Fairness Score: {fairness_score_simple:.2f}
+                    Bias Score: {dpd:.3f}
+                    DPD: {metrics['DPD']:.3f}
+                    DIR: {metrics['DIR']:.3f}
+                    EO: {metrics['EO']:.3f}
 
-                        prompt = f"""
-                You are an AI Fairness Expert helping users understand fairness results.
+                    Most affected group: {group_data.idxmin()}
+                    Least affected group: {group_data.idxmax()}
 
-                Dataset Info:
-                - Total Rows: {len(df)}
-                - Total Columns: {len(df.columns)}
-                - Column Names: {columns_list}
-                - First Row Names / Index: {row_names}
+                    User Question: {question}
+                    Give short simple answer.
+                    """
 
-                Missing Values:
-                {missing_values}
+                    try:
+                        response = model.generate_content(prompt)
+                        st.success(response.text)
 
-                Fairness Metrics:
-                - Fairness Score: {fairness_score_simple:.2f} / 100
-                - Bias Score (DPD): {metrics['DPD']:.3f}
-                - Disparate Impact Ratio: {metrics['DIR']:.3f}
-                - Equal Opportunity: {metrics['EO']:.3f}
+                    except Exception:
 
-                Groups:
-                - Best / Highest Group: {best_group}
-                - Least Affected Group: {least_group}
-                - Most Affected Group: {least_group}
+                        # -------- LOCAL FALLBACK --------
 
-                Target Column: {target}
-                Sensitive Column: {sensitive}
+                        if "why is fairness score low" in q or "why fairness score is low" in q or "why low fairness score" in q:
+                            st.success("Fairness score is low because there is a larger gap between groups.")
 
-                Please answer clearly and shortly.
+                        elif "why is fairness score high" in q or "why fairness score is high" in q or "why high fairness score" in q:
+                            st.success("Fairness score is high because outcomes are balanced across groups.")
 
-                User Question:
-                {question}
-                """
+                        elif "least affected" in q:
+                            st.success(f"Least affected group: {group_data.idxmax()}")
 
-                        try:
-                            response = model.generate_content(prompt)
-                            st.success(response.text)
+                        elif "most affected" in q:
+                            st.success(f"Most affected group: {group_data.idxmin()}")
 
-                        except Exception:
-                            st.warning("⚠️ Gemini quota exceeded. Please wait 1 minute and try again.")
+                        elif "how is fairness score calculated" in q:
+                            st.success("Fairness Score = (1 - Bias Score) × 100")
+
+                        elif "how to improve fairness score" in q:
+                            st.success("Balance data, reduce bias, collect fair samples, use fairness-aware models.")
+
+                        elif "fairness score" in q:
+                            st.success(f"Fairness Score is {fairness_score_simple:.2f}/100")
+
+                        elif "what is dpd" in q or "demographic parity difference" in q:
+                            st.success("DPD measures difference in positive outcomes between groups. Lower is better.")
+
+                        elif "why high bias" in q:
+                            st.success("High bias detected because group outcomes differ significantly.")
+
+                        elif "why moderate bias" in q:
+                            st.success("Moderate bias detected because some outcome gap exists between groups.")
+
+                        elif "why low bias" in q:
+                            st.success("Low bias detected because groups have similar outcomes.")
+
+                        elif "bias score" in q:
+                            st.success(f"Bias Score is {dpd:.3f}")
+
+                        elif "disparate impact" in q:
+                            st.success(f"Disparate Impact Ratio is {metrics['DIR']:.3f}")
+
+                        elif "equal opportunity" in q:
+                            st.success(f"Equal Opportunity Score is {metrics['EO']:.3f}")
+
+                        elif "best group" in q or "highest group" in q:
+                            st.success(f"Best performing group: {group_data.idxmax()}")
+
+                        elif "suggest mitigation" in q:
+                            st.success("Use rebalancing, remove bias features, fairness constraints, and auditing.")
+
+                        elif "number of columns" in q or "columns in dataset" in q or "how many columns" in q or "column names" in q or "columns" in q:
+                            st.success(f"Total columns: {len(df.columns)}\nColumns: {', '.join(df.columns)}")
+
+                        elif "number of rows" in q or "rows in dataset" in q or "how many rows" in q or "row names" in q or "rows" in q:
+                            st.success(f"Total rows: {len(df)}\nRow names: {list(df.index)}")
+
+                        elif "missing" in q:
+                            st.success(df.isnull().sum().to_string())
+
+                        else:
+                            st.success("Please ask fairness or dataset related questions.")
                 # ===== STORE FOR REPORT PAGE =====
                 st.session_state.before_bias = before_bias
                 st.session_state.after_bias = after_bias
@@ -1355,4 +1391,5 @@ if not st.session_state.logged_in:
         forgot_page()
 
 else:
-    main_app()
+    main_app() 
+
