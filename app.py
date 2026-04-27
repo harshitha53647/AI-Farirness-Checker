@@ -1,6 +1,11 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import google.generativeai as genai
+
+genai.configure(api_key="AIzaSyAl_L1SHVCZ1XRsuCSeoCl_VYxDpOsB7cQ")
+
+model = genai.GenerativeModel("gemini-2.0-flash")
 
 def calculate_fairness_metrics(group_data):
     values = group_data.values
@@ -842,220 +847,65 @@ def main_app():
                     st.warning("⚠️ No improvement detected")
 
                 # ================= CHATBOT =================
-                st.subheader("🤖 AI Fairness Chat Assistant")
+                st.subheader("🤖 Gemini AI Fairness Assistant")
 
                 question = st.text_input(
-                    "Ask anything about dataset / fairness / bias",
+                    "Ask anything about fairness / dataset",
                     placeholder="Example: Why is fairness score low?"
                 )
 
-                if st.button("Ask AI", key="ask_ai_btn"):
+                if st.button("Ask AI"):
 
                     if question.strip() == "":
                         st.warning("Please enter a question")
 
                     else:
-                        q = question.lower()
-                        answer = ""
-                        # ================= GOOGLE GEMINI SECTION =================
-                        st.subheader("🤖 Google Gemini AI Assistant")
+                        # Dataset details
+                        columns_list = ", ".join(df.columns)
+                        row_names = ", ".join(df.index.astype(str).tolist()[:20])   # first 20 rows only
+                        missing_values = df.isnull().sum().to_string()
 
+                        best_group = group_data.idxmax()
+                        least_group = group_data.idxmin()
 
-                        st.write("Use Gemini for fairness explanations, recommendations, and AI guidance.")
+                        prompt = f"""
+                You are an AI Fairness Expert helping users understand fairness results.
 
+                Dataset Info:
+                - Total Rows: {len(df)}
+                - Total Columns: {len(df.columns)}
+                - Column Names: {columns_list}
+                - First Row Names / Index: {row_names}
 
-                        st.link_button("Ask Gemini", "https://gemini.google.com")
+                Missing Values:
+                {missing_values}
 
+                Fairness Metrics:
+                - Fairness Score: {fairness_score_simple:.2f} / 100
+                - Bias Score (DPD): {metrics['DPD']:.3f}
+                - Disparate Impact Ratio: {metrics['DIR']:.3f}
+                - Equal Opportunity: {metrics['EO']:.3f}
 
-                        # ================= FAIRNESS QUESTIONS =================
-                        if "why is fairness score low" in q or "low fairness" in q:
-                            answer = f"""
-                        Fairness score is low because the bias gap (DPD) is {metrics['DPD']:.3f}.
+                Groups:
+                - Best / Highest Group: {best_group}
+                - Least Affected Group: {least_group}
+                - Most Affected Group: {least_group}
 
-                        This means some sensitive groups receive lower outcomes than others.
-                        Try balancing the dataset or using fairness-aware methods.
-                        """
-                        elif "why is fairness score high" in q or "why fairness score high" in q:
+                Target Column: {target}
+                Sensitive Column: {sensitive}
 
-                            if fairness_score_simple >= 90:
-                                answer = f"""
-                        Fairness score is high ({fairness_score_simple:.2f}%) because the bias gap (DPD) is very low at {metrics['DPD']:.3f}.
+                Please answer clearly and shortly.
 
-                        This means sensitive groups are receiving nearly equal outcomes, indicating a fair and balanced dataset.
-                        """
-                            elif fairness_score_simple >= 75:
-                                answer = f"""
-                        Fairness score is relatively good ({fairness_score_simple:.2f}%) because group outcome differences are limited.
-
-                        The bias gap (DPD) is {metrics['DPD']:.3f}, showing only moderate imbalance.
-                        """
-                            else:
-                                answer = f"""
-                        Fairness score is {fairness_score_simple:.2f}%, which is not considered high.
-
-                        There is still noticeable group disparity with DPD = {metrics['DPD']:.3f}.
-                        """
-                        # LEAST AFFECTED GROUP
-                        elif "least affected group" in q or "best group" in q or "highest performing group" in q:
-
-                            high_group = group_data.idxmax()
-                            high_value = group_data.max()
-
-                            answer = f"""
-                        Least affected / best performing group is {high_group}.
-
-                        This group has the highest average outcome of {high_value:.3f}, meaning it experienced the most favorable results.
-                        """
-                        elif "most affected group" in q:
-                            answer = f"Most affected group: {group_data.idxmin()}"
-                        
-                        # HOW FAIRNESS SCORE IS CALCULATED
-                        elif "how is fairness score calculated" in q or "calculate fairness score" in q:
-
-                            answer = f"""
-                        Fairness Score is calculated using:
-
-                        Fairness Score = (1 - Bias Gap) × 100
-
-                        Where Bias Gap = DPD = Max Group Outcome - Min Group Outcome
-
-                        For your dataset:
-
-                        DPD = {metrics['DPD']:.3f}
-
-                        Fairness Score = (1 - {metrics['DPD']:.3f}) × 100 = {fairness_score_simple:.2f}%
-                        """
-
-                        # HOW TO IMPROVE FAIRNESS SCORE
-                        elif "how to improve fairness score" in q or "improve fairness score" in q:
-
-                            answer = """
-                        To improve fairness score:
-
-                        1. Balance the dataset across all groups
-                        2. Add more underrepresented group data
-                        3. Remove proxy sensitive features
-                        4. Use fairness-aware machine learning models
-                        5. Tune model thresholds equally
-                        6. Monitor fairness regularly after training
-                        """
-
-                        elif "fairness score" in q:
-                            answer = f"Fairness Score: {fairness_score_simple:.2f}%"
-
-                        elif "what is dpd" in q or "define dpd" in q or "meaning of dpd" in q:
-
-                            answer = f"""
-                        DPD stands for Demographic Parity Difference.
-
-                        It measures the difference between the highest and lowest group outcomes.
-
-                        Formula:
-                        DPD = Max Group Outcome - Min Group Outcome
-
-                        For your dataset:
-                        DPD = {metrics['DPD']:.3f}
-
-                        Lower DPD is better because it means groups are treated more equally.
-                        """
-                        elif "what is demographic parity difference" in q:
-
-                            answer = f"""
-                        Demographic Parity Difference (DPD) measures fairness by comparing outcomes across sensitive groups.
-
-                        A smaller value means fairer results.
-                        Your current DPD is {metrics['DPD']:.3f}.
-                        """
-
-                        elif "why high bias is detected" in q or "why is high bias detected" in q or "why high bias detected" in q:
-
-                            if metrics["DPD"] > 0.2:
-                                answer = f"""
-                        High Bias is detected because the Demographic Parity Difference (DPD) is {metrics['DPD']:.3f}, which is above the high-bias threshold (0.20).
-
-                        This means there is a large outcome gap between sensitive groups.
-                        Some groups are receiving significantly lower outcomes than others.
-                        """
-                            else:
-                                answer = f"Currently DPD is {metrics['DPD']:.3f}, so High Bias is not detected."
-
-                        elif "why moderate bias is detected" in q or "why is moderate bias detected" in q or "why moderate bias detected" in q:
-
-                            if metrics["DPD"] > 0.1 and metrics["DPD"] <= 0.2:
-                                answer = f"""
-                        Moderate Bias is detected because the DPD is {metrics['DPD']:.3f}.
-
-                        There is noticeable imbalance between groups, but not severe enough to be classified as High Bias.
-                        """
-                            else:
-                                answer = f"Currently DPD is {metrics['DPD']:.3f}, so Moderate Bias is not detected."
-
-                        elif "why low bias is detected" in q or "why is low bias detected" in q or "why low bias detected" in q:
-
-                            if metrics["DPD"] <= 0.1:
-                                answer = f"""
-                        Low Bias is detected because the DPD is only {metrics['DPD']:.3f}.
-
-                        This means the outcome gap between sensitive groups is small, so the dataset appears relatively fair.
-                        """
-                            else:
-                                answer = f"Currently DPD is {metrics['DPD']:.3f}, so Low Bias is not detected."
-
-                        elif "bias score" in q or "dpd" in q:
-                            answer = f"Bias Gap (DPD): {metrics['DPD']:.3f}"
-
-                        elif "disparate impact" in q or "dir" in q:
-                            answer = f"Disparate Impact Ratio: {metrics['DIR']:.3f}"
-
-                        elif "equal opportunity" in q:
-                            answer = f"Equal Opportunity: {metrics['EO']:.3f}"
-
-                        elif "best group" in q or "highest group" in q:
-                            answer = f"Best performing group: {group_data.idxmax()}"
-
-                        elif "suggest mitigation" in q or "improve fairness" in q:
-                            answer = """
-                1. Balance the dataset  
-                2. Remove proxy sensitive features  
-                3. Use fairness-aware models  
-                4. Collect diverse data
+                User Question:
+                {question}
                 """
 
-                        # ================= DATASET QUESTIONS =================
-                        elif "column" in q:
-                            total_cols = len(df.columns)
-                            col_names = ", ".join(df.columns)
+                        try:
+                            response = model.generate_content(prompt)
+                            st.success(response.text)
 
-                            answer = f"""
-                        Total columns: {total_cols}
-
-                        Column Names: {col_names}
-                        """
-                        elif "row" in q or "row names" in q:
-
-                            total_rows = len(df)
-
-                            if total_rows <= 30:
-                                row_names = ", ".join(map(str, df.index.tolist()))
-                            else:
-                                row_names = ", ".join(map(str, df.index.tolist()[:20])) + " ..."
-
-                            answer = f"""
-                        Total Number of Rows: {total_rows}
-
-                        Row Names:
-                        {row_names}
-                        """
-
-                        elif "missing" in q:
-                            answer = df.isnull().sum().to_string()
-
-                        else:
-                            answer = "Please ask about fairness score, bias, groups, columns, rows, or mitigation."
-
-                        # ✅ SHOW ANSWER
-                        st.success(answer)
-
+                        except Exception:
+                            st.warning("⚠️ Gemini quota exceeded. Please wait 1 minute and try again.")
                 # ===== STORE FOR REPORT PAGE =====
                 st.session_state.before_bias = before_bias
                 st.session_state.after_bias = after_bias
